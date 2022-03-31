@@ -1,2 +1,17 @@
 # avdump
-Dump audio and video information of a stream
+Dump audio and video information of specified stream.
+
+## Usage
+```
+git clone https://github.com/peipeiguo/avdump.git
+cd avdump
+go build
+./avdump
+Usage: avdump [-s stream_index] input_file
+Options:
+  -i string
+    	Input URL, such as file path or URL
+  -s int
+    	Stream index to dump in input file, default is dump all streams (default -1)
+./avdump -i rtmp://host:1935/app/stream
+```

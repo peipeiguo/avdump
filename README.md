@@ -7,7 +7,7 @@ git clone https://github.com/peipeiguo/avdump.git
 cd avdump
 go build
 ./avdump
-Usage: avdump [-s stream_index] input_file
+Usage: avdump [-s stream_index] -i input_url
 Options:
   -i string
     	Input URL, such as file path or URL

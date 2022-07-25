@@ -58,27 +58,29 @@ func openDecoder(formatCtx *avformat.Context, stream *avformat.Stream) *avcodec.
 func dumpVideoFrame(decodeCtx *avcodec.Context, packet *avcodec.Packet) {
 	// decode video frame
 	frame := avutil.AvFrameAlloc()
-	response := decodeCtx.AvcodecSendPacket(packet)
-	if response < 0 {
-		log.Printf("Error while sending a packet to the decoder: %s\n", avutil.ErrorFromCode(response))
+	ret := decodeCtx.AvcodecSendPacket(packet)
+	if ret < 0 {
+		log.Printf("Error while sending a packet to the decoder: %s\n", avutil.ErrorFromCode(ret))
 	}
 
-	for response >= 0 {
-		response = decodeCtx.AvcodecReceiveFrame((*avcodec.Frame)(unsafe.Pointer(frame)))
-		if response == avutil.AvErrorEAGAIN || response == avutil.AvErrorEOF {
+	for ret >= 0 {
+		ret = decodeCtx.AvcodecReceiveFrame((*avcodec.Frame)(unsafe.Pointer(frame)))
+		if ret == avutil.AvErrorEAGAIN || ret == avutil.AvErrorEOF {
 			break
-		} else if response < 0 {
-			log.Print("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+		} else if ret < 0 {
+			log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(ret))
 			return
 		}
 
-		// process image
-		log.Printf("Stream %d: Video: pkt pts %d (diff %d), frame pts %d (diff %d), pkt dts %d (diff %d), pkt duration %d, frameRate %d ",
-			packet.StreamIndex(), packet.Pts(), packet.Pts()-prevVFrame.pktPts, frame.Pts(), frame.Pts()-prevVFrame.pts,
-			packet.Dts(), packet.Dts()-prevVFrame.pktDts, packet.Duration(), decodeCtx.GetFrameRateInt())
-		prevVFrame.pktDts = packet.Dts()
-		prevVFrame.pktPts = packet.Pts()
+		// process image pict_type=%c,  avutil.AvGetPictureTypeChar(1),
+		log.Printf("frame: media_type=video, stream_index=%d, frame_pts=%d (diff=%d), pkt_pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d, frame_rate=%d",
+			packet.StreamIndex(), frame.Pts(), frame.Pts()-prevVFrame.pts,
+			packet.Pts(), packet.Pts()-prevVFrame.pktPts,
+			packet.Dts(), packet.Dts()-prevVFrame.pktDts, packet.Duration(),
+			decodeCtx.GetFrameRateInt())
 		prevVFrame.pts = frame.Pts()
+		prevVFrame.pktPts = packet.Pts()
+		prevVFrame.pktDts = packet.Dts()
 	}
 
 	// Free the YUV frame
@@ -101,17 +103,18 @@ func dumpAudioFrame(decodeCtx *avcodec.Context, packet *avcodec.Packet) {
 		if response == avutil.AvErrorEAGAIN || response == avutil.AvErrorEOF {
 			break
 		} else if response < 0 {
-			log.Print("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
+			log.Printf("Error while receiving a frame from the decoder: %s\n", avutil.ErrorFromCode(response))
 			return
 		}
 
 		// process sample
-		log.Printf("Stream %d: Audio: pkt pts %d (diff %d), frame pts %d (diff %d), pkt dts %d (diff %d), pkt duration %d",
-			packet.StreamIndex(), packet.Pts(), packet.Pts()-prevAFrame.pktPts, frame.Pts(), frame.Pts()-prevAFrame.pts,
+		log.Printf("frame: media_type=audio, stream_index=%d, frame_pts=%d (diff=%d), pkt_pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d",
+			packet.StreamIndex(), frame.Pts(), frame.Pts()-prevAFrame.pts,
+			packet.Pts(), packet.Pts()-prevAFrame.pktPts,
 			packet.Dts(), packet.Dts()-prevAFrame.pktDts, packet.Duration())
-		prevAFrame.pktDts = packet.Dts()
-		prevAFrame.pktPts = packet.Pts()
 		prevAFrame.pts = frame.Pts()
+		prevAFrame.pktPts = packet.Pts()
+		prevAFrame.pktDts = packet.Dts()
 	}
 
 	// Free the YUV frame
@@ -132,16 +135,16 @@ func dumpStream(formatCtx *avformat.Context, sIndex int) {
 		mediaType := stream.CodecParameters().AvCodecGetType()
 		if mediaType == avformat.AVMEDIA_TYPE_VIDEO {
 			vDecCtx = openDecoder(formatCtx, stream)
-			log.Printf("Stream %d: Video: timebase=%d/%d, codec timebase: %d/%d", i,
+			log.Printf("stream: media_type=video, stream_index=%d, timebase=%d/%d, codec_timebase=%d/%d", i,
 				stream.TimeBase().Num(), stream.TimeBase().Den(),
 				vDecCtx.AvCodecGetTimebase().Num(), vDecCtx.AvCodecGetTimebase().Den())
 		} else if mediaType == avformat.AVMEDIA_TYPE_AUDIO {
 			aDecCtx = openDecoder(formatCtx, stream)
-			log.Printf("Stream %d: Audio: timebase=%d/%d, codec timebase: %d/%d", i,
+			log.Printf("stream: media_type=video, stream_index=%d, timebase=%d/%d, codec_timebase=%d/%d", i,
 				stream.TimeBase().Num(), stream.TimeBase().Den(),
 				aDecCtx.AvCodecGetTimebase().Num(), aDecCtx.AvCodecGetTimebase().Den())
 		} else {
-			log.Printf("Stream %d: Unsupported stream: %v", i, mediaType)
+			log.Printf("stream: media_type=%v, stream_index=%d", mediaType, i)
 			continue
 		}
 	}
@@ -159,7 +162,8 @@ func dumpStream(formatCtx *avformat.Context, sIndex int) {
 		} else if mediaType == avformat.AVMEDIA_TYPE_AUDIO {
 			dumpAudioFrame(aDecCtx, packet)
 		} else {
-			log.Printf("Stream %d: pts %d dts %d duration %d", packet.StreamIndex(), packet.Pts(), packet.Dts(), packet.Duration())
+			log.Printf("frame: media_type=%v, stream_index=%d, pkt_pts=%d, pkt_dts=%d, pkt_duration=%d", mediaType,
+				packet.StreamIndex(), packet.Pts(), packet.Dts(), packet.Duration())
 			continue
 		}
 	}
@@ -176,7 +180,7 @@ func dumpStream(formatCtx *avformat.Context, sIndex int) {
  * Print usage
  */
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: avdump [-s stream_index] input_file\nOptions:\n")
+	fmt.Fprintf(os.Stderr, "Usage: avdump [-s stream_index] -i input_url\nOptions:\n")
 	flag.PrintDefaults()
 }
 
@@ -189,7 +193,7 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		flag.Usage()
 		os.Exit(1)
 	}

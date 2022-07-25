@@ -72,15 +72,15 @@ func dumpVideoFrame(decodeCtx *avcodec.Context, packet *avcodec.Packet) {
 			return
 		}
 
-		// process image pict_type=%c,  avutil.AvGetPictureTypeChar(1),
-		log.Printf("frame: media_type=video, stream_index=%d, frame_pts=%d (diff=%d), pkt_pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d, frame_rate=%d",
-			packet.StreamIndex(), frame.Pts(), frame.Pts()-prevVFrame.pts,
-			packet.Pts(), packet.Pts()-prevVFrame.pktPts,
-			packet.Dts(), packet.Dts()-prevVFrame.pktDts, packet.Duration(),
-			decodeCtx.GetFrameRateInt())
+		// process image
+		log.Printf("frame: media_type=video, stream_index=%d, key_frame=%d, pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d, pkt_pts=%d (diff=%d), frame_rate=%d, pict_type=%s, coded_pict_number=%d, display_pict_number=%d",
+			packet.StreamIndex(), frame.KeyFrame(), frame.Pts(), frame.Pts()-prevVFrame.pts,
+			frame.PktDts(), frame.PktDts()-prevVFrame.pktDts, packet.Duration(),
+			packet.Pts(), packet.Pts()-prevVFrame.pktPts, decodeCtx.GetFrameRateInt(),
+			avutil.AvGetPictureTypeChar(avutil.AvPictureType(frame.PictureType())), frame.CodedPictureNumber(), frame.DisplayPictureNumber())
 		prevVFrame.pts = frame.Pts()
+		prevVFrame.pktDts = frame.PktDts()
 		prevVFrame.pktPts = packet.Pts()
-		prevVFrame.pktDts = packet.Dts()
 	}
 
 	// Free the YUV frame
@@ -108,13 +108,13 @@ func dumpAudioFrame(decodeCtx *avcodec.Context, packet *avcodec.Packet) {
 		}
 
 		// process sample
-		log.Printf("frame: media_type=audio, stream_index=%d, frame_pts=%d (diff=%d), pkt_pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d",
-			packet.StreamIndex(), frame.Pts(), frame.Pts()-prevAFrame.pts,
-			packet.Pts(), packet.Pts()-prevAFrame.pktPts,
-			packet.Dts(), packet.Dts()-prevAFrame.pktDts, packet.Duration())
+		log.Printf("frame: media_type=audio, stream_index=%d, key_frame=%d, pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d, pkt_pts=%d (diff=%d)",
+			packet.StreamIndex(), frame.KeyFrame(), frame.Pts(), frame.Pts()-prevAFrame.pts,
+			frame.PktDts(), frame.PktDts()-prevVFrame.pktDts, packet.Duration(),
+			packet.Pts(), packet.Pts()-prevVFrame.pktPts)
 		prevAFrame.pts = frame.Pts()
+		prevAFrame.pktDts = frame.PktDts()
 		prevAFrame.pktPts = packet.Pts()
-		prevAFrame.pktDts = packet.Dts()
 	}
 
 	// Free the YUV frame

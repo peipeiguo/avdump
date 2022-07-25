@@ -140,7 +140,7 @@ func dumpStream(formatCtx *avformat.Context, sIndex int) {
 				vDecCtx.AvCodecGetTimebase().Num(), vDecCtx.AvCodecGetTimebase().Den())
 		} else if mediaType == avformat.AVMEDIA_TYPE_AUDIO {
 			aDecCtx = openDecoder(formatCtx, stream)
-			log.Printf("stream: media_type=video, stream_index=%d, timebase=%d/%d, codec_timebase=%d/%d", i,
+			log.Printf("stream: media_type=audio, stream_index=%d, timebase=%d/%d, codec_timebase=%d/%d", i,
 				stream.TimeBase().Num(), stream.TimeBase().Den(),
 				aDecCtx.AvCodecGetTimebase().Num(), aDecCtx.AvCodecGetTimebase().Den())
 		} else {

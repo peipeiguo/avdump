@@ -19,8 +19,9 @@ type frameInfo struct {
 }
 
 var (
-	prevAFrame frameInfo
-	prevVFrame frameInfo
+	prevAFrame    frameInfo
+	prevVFrame    frameInfo
+	prevKeyNumber int = 0
 )
 
 /**
@@ -73,11 +74,19 @@ func dumpVideoFrame(decodeCtx *avcodec.Context, packet *avcodec.Packet) {
 		}
 
 		// process image
+		pictType := avutil.AvGetPictureTypeChar(avutil.AvPictureType(frame.PictureType()))
 		log.Printf("frame: media_type=video, stream_index=%d, key_frame=%d, pts=%d (diff=%d), pkt_dts=%d (diff=%d), pkt_duration=%d, pkt_pts=%d (diff=%d), frame_rate=%d, pict_type=%s, coded_pict_number=%d, display_pict_number=%d",
 			packet.StreamIndex(), frame.KeyFrame(), frame.Pts(), frame.Pts()-prevVFrame.pts,
 			frame.PktDts(), frame.PktDts()-prevVFrame.pktDts, packet.Duration(),
 			packet.Pts(), packet.Pts()-prevVFrame.pktPts, decodeCtx.GetFrameRateInt(),
-			avutil.AvGetPictureTypeChar(avutil.AvPictureType(frame.PictureType())), frame.CodedPictureNumber(), frame.DisplayPictureNumber())
+			pictType, frame.CodedPictureNumber(), frame.DisplayPictureNumber())
+
+		if frame.KeyFrame() == 1 && pictType == "I" {
+			gopSize := frame.CodedPictureNumber() - prevKeyNumber
+			prevKeyNumber = frame.CodedPictureNumber()
+			log.Printf("frame: media_type=video, stream_index=%d, gop_size=%d", packet.StreamIndex(), gopSize)
+		}
+
 		prevVFrame.pts = frame.Pts()
 		prevVFrame.pktDts = frame.PktDts()
 		prevVFrame.pktPts = packet.Pts()
